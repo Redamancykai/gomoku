@@ -14,13 +14,15 @@ class ChessBoard extends JPanel {
     private static final int PIECE_RADIUS = 15;  
     private static final int WIDTH = CELL_SIZE * (GRID_SIZE - 1) + 2 * MARGIN;
     private static final int HEIGHT = CELL_SIZE * (GRID_SIZE - 1) + 2 * MARGIN;
-    private static final int BLACK = 1;
-    private static final int WHITE = 2;
+    protected static final int BLACK = 1;
+    protected static final int WHITE = 2;
     
     private int[][] ChessBoardState = new int[GRID_SIZE][GRID_SIZE];
     private int currentPlayer = BLACK;
     private boolean GameOver = false;
     private ArrayList<Move> history = new ArrayList<>(); 
+    private int reviewIndex = 0;
+    private boolean isReviewing = false;
 
     public ChessBoard() {
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -33,10 +35,21 @@ class ChessBoard extends JPanel {
             }
         });
     }
+    
+    // 深拷贝
+    public ChessBoard deepCopy() {
+        ChessBoard newBoard = new ChessBoard();
+        for (int x = 0; x < GRID_SIZE; x++) {
+            System.arraycopy(this.ChessBoardState[x], 0, newBoard.ChessBoardState[x], 0, GRID_SIZE);
+        }
+        newBoard.currentPlayer = this.currentPlayer;
+        newBoard.GameOver = this.GameOver;
+        return newBoard;
+    }
 
     // 处理下棋
     private void handleMove(int px, int py) {	
-    	if(GameOver) {
+    	if(GameOver || isReviewing) {
     		return;
     	}
     	
@@ -68,7 +81,7 @@ class ChessBoard extends JPanel {
     
     
     // 判定胜利条件
-    private boolean isWinning(int x, int y, int player) {
+    protected boolean isWinning(int x, int y, int player) {
         // 检查左右方向
         int count1 = 0;
         int cur_x = x;
@@ -155,8 +168,47 @@ class ChessBoard extends JPanel {
     	GameOver = false;
     	repaint();
     }
+    
+    // 复盘部分函数  
+    protected void prepareReview() {
+    	if(history.isEmpty()) {
+    		return;
+    	}
+    	
+    	GameOver = false;
+    	isReviewing = true;
+    	
+    	for(int i = 0; i < GRID_SIZE; i++) {
+    		for(int j = 0; j < GRID_SIZE; j++) {
+    			ChessBoardState[i][j] = 0;
+    		}
+    	}
+    	
+    	repaint();
+    }
 
-
+    protected void startReview() {
+    	Move reviewMove = history.get(reviewIndex);
+    	ChessBoardState[reviewMove.x][reviewMove.y] = reviewMove.player;
+    	reviewIndex++;
+    	repaint();
+    }
+    
+    protected boolean finishReview() {
+    	if(reviewIndex >= history.size()) {
+    		isReviewing = false;
+    		reviewIndex = 0;
+    		repaint();
+    		return true;
+    	}
+    	return false;
+    }
+    
+    protected boolean getReviewStatus() {
+    	return isReviewing;
+    }
+    
+    // 绘图
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -209,5 +261,24 @@ class ChessBoard extends JPanel {
             }
         }
         
+    }
+    
+    
+    // 和AI有关的辅助函数
+    public ArrayList<Move> getLegalActions(int color) {
+        ArrayList<Move> legalMoves = new ArrayList<>();
+
+        for (int x = 0; x < GRID_SIZE; x++) {
+            for (int y = 0; y < GRID_SIZE; y++) {
+                if (ChessBoardState[x][y] == 0) {
+                    legalMoves.add(new Move(x, y, color)); 
+                }
+            }
+        }
+        return legalMoves;
+    }
+    
+    public void simMove(Move move) {
+    	this.ChessBoardState[move.x][move.y] = move.player;
     }
 }
