@@ -34,6 +34,9 @@ public class Node {
     }
     
     protected boolean isGameover() {
+    	if (this.move == null) {
+            return false;
+        }
     	return this.board.isWinning(move.x, move.y, move.player);
     }
     
@@ -88,13 +91,16 @@ public class Node {
         int winner = 0;
         while (true) {
             List<Move> legalMoves = currentBoard.getLegalActions(currentPlayer);
+            if (legalMoves.isEmpty()) {
+                break;
+            }
             Move move = legalMoves.get(random.nextInt(legalMoves.size()));
             currentBoard.simMove(move);
-            currentPlayer = getOpponentPlayer(currentPlayer);
-            if(currentBoard.isWinning(move.x, move.y, currentPlayer)) {
-            	winner = currentPlayer;
+            if(currentBoard.isWinning(move.x, move.y, move.player)) {
+            	winner = move.player;
             	break;
             }
+            currentPlayer = getOpponentPlayer(currentPlayer);
         }
         return calculateReward(winner, rootNode.player);
     }

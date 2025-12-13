@@ -4,6 +4,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
 
 class ChessBoard extends JPanel {
 
@@ -12,6 +13,8 @@ class ChessBoard extends JPanel {
     private static final int MARGIN = 60;
     private static final int STAR_RADIUS = 4;
     private static final int PIECE_RADIUS = 15;  
+    private static final int CHATPANEL_WIDTH = 280;
+    private static final int BOTTOM_GAP = 80;
     private static final int WIDTH = CELL_SIZE * (GRID_SIZE - 1) + 2 * MARGIN;
     private static final int HEIGHT = CELL_SIZE * (GRID_SIZE - 1) + 2 * MARGIN;
     protected static final int BLACK = 1;
@@ -23,9 +26,11 @@ class ChessBoard extends JPanel {
     private ArrayList<Move> history = new ArrayList<>(); 
     private int reviewIndex = 0;
     private boolean isReviewing = false;
+    private Runnable moveListener;
+    private boolean AIthinking = false;
 
     public ChessBoard() {
-        setPreferredSize(new Dimension(WIDTH, HEIGHT));
+        setPreferredSize(new Dimension(WIDTH + CHATPANEL_WIDTH, HEIGHT + BOTTOM_GAP));
         setBackground(new Color(245, 222, 179)); 
 
         addMouseListener(new MouseAdapter() {
@@ -46,10 +51,23 @@ class ChessBoard extends JPanel {
         newBoard.GameOver = this.GameOver;
         return newBoard;
     }
+    
+    // 接口函数
+    public boolean isGameOver() {
+    	return GameOver;
+    }
+    
+    public int getCurrentPlayer() {
+        return currentPlayer;
+    }
+    
+    public void setAIthinking(boolean thinking) {
+        this.AIthinking = thinking;
+    }
 
     // 处理下棋
     private void handleMove(int px, int py) {	
-    	if(GameOver || isReviewing) {
+    	if(GameOver || isReviewing || AIthinking) {
     		return;
     	}
     	
@@ -59,24 +77,40 @@ class ChessBoard extends JPanel {
         if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) {
             return;
         }
+        
         if (ChessBoardState[x][y] == 0) {
-            ChessBoardState[x][y] = currentPlayer;
-            history.add(new Move(x, y, currentPlayer));
-            
-            repaint();
-            
-            // 判定胜利
-            if(isWinning(x, y, currentPlayer)) {
-            	GameOver = true;
-            	String winner = (currentPlayer == BLACK ? "黑方" : "白方");
-                JOptionPane.showMessageDialog(this, winner + " 获胜了！", "游戏结束", JOptionPane.INFORMATION_MESSAGE);
-            }
-
-            if(!GameOver) {
-            	currentPlayer = (currentPlayer == BLACK ? WHITE : BLACK);
-            }
-
+        	doMove(x, y);
         } 
+    }
+    
+    // 落子操作
+    private void doMove(int x, int y) {
+        ChessBoardState[x][y] = currentPlayer;
+        history.add(new Move(x, y, currentPlayer));
+        
+        repaint();
+        
+        // 判定胜利
+        if(isWinning(x, y, currentPlayer)) {
+            GameOver = true;
+            String winner = (currentPlayer == BLACK ? "黑方" : "白方");
+            JOptionPane.showMessageDialog(this, winner + " 获胜了！", "游戏结束", JOptionPane.INFORMATION_MESSAGE);
+        }
+
+        if(!GameOver) {
+            currentPlayer = (currentPlayer == BLACK ? WHITE : BLACK);
+        }
+        
+        if (moveListener != null) {
+            moveListener.run();
+        }
+    }
+    
+    // AI落子操作
+    public void AIMove(int x, int y) {
+    	if (x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE && ChessBoardState[x][y] == 0) {
+            doMove(x, y);
+        }
     }
     
     
@@ -263,6 +297,27 @@ class ChessBoard extends JPanel {
         
     }
     
+    // 重置棋盘
+    public void resetBoard() {
+        for (int i = 0; i < GRID_SIZE; i++) {
+        	for(int j = 0; j < GRID_SIZE; j++) {
+        		ChessBoardState[i][j] = 0;
+        	}
+        }
+        history.clear();
+        currentPlayer = BLACK;
+        GameOver = false;
+        isReviewing = false;
+        reviewIndex = 0;
+        AIthinking = false;
+        repaint();
+    }
+    
+    
+    // 倒计时实现
+    public void setMoveListener(Runnable listener) {
+        this.moveListener = listener;
+    }
     
     // 和AI有关的辅助函数
     public ArrayList<Move> getLegalActions(int color) {
